@@ -26,7 +26,10 @@ def main(model_config = None):
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
         "nrow": 8,
-        "resume_epoch": 0 ### 133
+        "resume_epoch": 0, ### 133
+        "log_images": True,
+        "log_image_every": 20 ### 图像采样间隔，受限于本人的显存，设置为20
+
         }
     if model_config is not None:
         modelConfig = model_config

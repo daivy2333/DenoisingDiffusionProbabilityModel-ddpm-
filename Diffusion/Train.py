@@ -1,6 +1,8 @@
 
 import os
 from typing import Dict
+from torch.utils.tensorboard import SummaryWriter
+import torchvision
 
 import torch
 import torch.optim as optim
@@ -18,6 +20,8 @@ from Scheduler import GradualWarmupScheduler
 def train(modelConfig: Dict):
     device = torch.device(modelConfig["device"])
     # dataset
+    writer = SummaryWriter(log_dir=modelConfig.get("log_dir", "./logs"))
+
     dataset = CIFAR10(
         root='./CIFAR10', train=True, download=True,
         transform=transforms.Compose([
@@ -46,7 +50,7 @@ def train(modelConfig: Dict):
     # start training
     best_loss = float('inf')
     start_epoch = modelConfig.get("resume_epoch", 0)
-    
+    # 断点功能
     if modelConfig["training_load_weight"] is not None:
         checkpoint = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]), map_location=device)
         net_model.load_state_dict(checkpoint['model_state_dict'])
@@ -73,6 +77,25 @@ def train(modelConfig: Dict):
                     "LR": optimizer.state_dict()['param_groups'][0]["lr"]
                 })
         warmUpScheduler.step()
+                # TensorBoard 记录
+        writer.add_scalar("Loss/train", loss.item(), e)
+        writer.add_scalar("LR", optimizer.param_groups[0]["lr"], e)
+        if modelConfig.get("log_images", True):
+            # 每 N 个 epoch 执行一次图像采样和写入
+            if (e + 1) % modelConfig.get("log_image_every", 20) == 0:
+                net_model.eval()
+                try:
+                    with torch.no_grad():
+                        noisyImage = torch.randn(
+                            size=[modelConfig["nrow"], 3, 32, 32], device=device)
+                        sampledImgs = trainer.model(noisyImage)
+                        sampledImgs = sampledImgs * 0.5 + 0.5  # 反归一化
+                        writer.add_images("Sampled Images", sampledImgs, e)
+                finally:
+                    net_model.train()
+
+
+
         if (e + 1) % 10 == 0:
             torch.save({
                 'epoch': e,
@@ -86,6 +109,9 @@ def train(modelConfig: Dict):
             best_loss = loss.item()
             torch.save(net_model.state_dict(), os.path.join(
                 modelConfig["save_weight_dir"], 'best_model.pt'))
+            
+    writer.close()
+
 
 
 def eval(modelConfig: Dict):
