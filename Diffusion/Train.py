@@ -44,7 +44,18 @@ def train(modelConfig: Dict):
         net_model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
 
     # start training
-    for e in range(modelConfig["epoch"]):
+    best_loss = float('inf')
+    start_epoch = modelConfig.get("resume_epoch", 0)
+    
+    if modelConfig["training_load_weight"] is not None:
+        checkpoint = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]), map_location=device)
+        net_model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        warmUpScheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint.get('epoch', 0) + 1
+        print(f"✅ Resuming training from epoch {start_epoch}")
+    
+    for e in range(start_epoch, modelConfig["epoch"]):
         with tqdm(dataloader, dynamic_ncols=True) as tqdmDataLoader:
             for images, labels in tqdmDataLoader:
                 # train
@@ -62,8 +73,19 @@ def train(modelConfig: Dict):
                     "LR": optimizer.state_dict()['param_groups'][0]["lr"]
                 })
         warmUpScheduler.step()
-        torch.save(net_model.state_dict(), os.path.join(
-            modelConfig["save_weight_dir"], 'ckpt_' + str(e) + "_.pt"))
+        if (e + 1) % 10 == 0:
+            torch.save({
+                'epoch': e,
+                'model_state_dict': net_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': warmUpScheduler.state_dict()
+            }, os.path.join(modelConfig["save_weight_dir"], f'ckpt_{e}_.pt'))
+
+            
+        if loss.item() < best_loss:
+            best_loss = loss.item()
+            torch.save(net_model.state_dict(), os.path.join(
+                modelConfig["save_weight_dir"], 'best_model.pt'))
 
 
 def eval(modelConfig: Dict):

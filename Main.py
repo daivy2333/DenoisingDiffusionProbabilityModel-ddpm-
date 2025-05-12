@@ -19,13 +19,14 @@ def main(model_config = None):
         "img_size": 32,
         "grad_clip": 1.,
         "device": "cuda:0", ### MAKE SURE YOU HAVE A GPU !!!
-        "training_load_weight": None,
-        "save_weight_dir": "./Checkpoints/",
+        "training_load_weight": None,### 指定加载模型用于重启中断 "ckpt_133_.pt"
+        "save_weight_dir": "DenoisingDiffusionProbabilityModel-ddpm-/Checkpoints/",
         "test_load_weight": "ckpt_199_.pt",
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
-        "nrow": 8
+        "nrow": 8,
+        "resume_epoch": 0 ### 133
         }
     if model_config is not None:
         modelConfig = model_config
