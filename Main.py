@@ -28,11 +28,24 @@ def main(model_config = None):
         "sampledImgName": "SampledNoGuidenceImgs.png",
         "nrow": 8,
         "resume_epoch": 79, ### 重启起点，重启用到
-        "log_images": True,
+        "log_images": True, # 采样开关
         "log_image_every": 20,### 图像采样间隔，受限于本人的显存，设置为20
-        "image_path":"DenoisingDiffusionProbabilityModel-ddpm-\\SampledImgs\\79b3905c3899c637f018c9fe05b24a87.jpg", #修改输入图片用到
-        "eval_model":"denoise" # or "sample"  # 选择评估模型的类型
+        "image_path":"DenoisingDiffusionProbabilityModel-ddpm-\\SampledImgs\\image.png", #修改输入图片用到
+        "eval_model":"sample" # or "sample"  # 选择评估模型的类型
         }
+    
+    """
+    训练关键参数："state": "train"
+    "epoch": 400, # 400
+    "training_load_weight": "ckpt_79_.pt"
+    "resume_epoch": 79
+
+    评估关键参数："state": "eval"
+    "eval_model":"denoise" # or "sample"
+    "test_load_weight": "best_model.pt"
+    "image_path":""
+    """
+
     if model_config is not None:
         modelConfig = model_config
     if modelConfig["state"] == "train":

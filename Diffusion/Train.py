@@ -163,7 +163,7 @@ def denoise_real_image(model, sampler, image_path, modelConfig):
     x_0 = transform(img).unsqueeze(0).to(device)  # (1, 3, 32, 32)
 
     # 添加噪声到第 t 步
-    t = 50 # 可以尝试 100, 250, 500, 越大越模糊
+    t = 100 # 可以尝试 100, 250, 500, 越大越模糊
     noise = torch.randn_like(x_0)
     alpha_bar = torch.cumprod(torch.linspace(1 - modelConfig["beta_1"], 1 - modelConfig["beta_T"], modelConfig["T"]), dim=0)
     x_t = torch.sqrt(alpha_bar[t]) * x_0 + torch.sqrt(1 - alpha_bar[t]) * noise
