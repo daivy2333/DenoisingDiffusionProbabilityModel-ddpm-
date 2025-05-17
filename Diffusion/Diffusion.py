@@ -110,6 +110,8 @@ class GaussianDiffusionSampler(nn.Module):
         # below: only log_variance is used in the KL computations
         var = torch.cat([self.posterior_var[1:2], self.betas[1:]])
         var = extract(var, t, x_t.shape)
+        
+        print("NaN in x_t:", torch.isnan(x_t).sum().item())
 
         eps = self.model(x_t, t)
         xt_prev_mean = self.predict_xt_prev_mean_from_eps(x_t, t, eps=eps)
@@ -135,9 +137,19 @@ class GaussianDiffusionSampler(nn.Module):
                 noise = torch.randn_like(x_t)
             else:
                 noise = 0
-            x_t = mean + torch.sqrt(var) * noise
+            if time_step == 999:
+                print("==> time_step: ", time_step)
+                print("var min:", var.min().item(), "var max:", var.max().item())
+                print("NaN in var:", torch.isnan(var).sum().item())
+                print("NaN in mean:", torch.isnan(mean).sum().item())
+           
+            eps = 1e-5  # 或 1e-6，根据实际需要调整
+            x_t = mean + torch.sqrt(var + eps) * noise
+
             assert torch.isnan(x_t).int().sum() == 0, "nan in tensor."
         x_0 = x_t
+        
+
         return torch.clip(x_0, -1, 1)   
 
 

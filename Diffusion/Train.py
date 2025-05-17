@@ -2,7 +2,8 @@
 import os
 from typing import Dict
 from torch.utils.tensorboard import SummaryWriter
-import torchvision
+import torch.nn as nn
+
 from PIL import Image
 from torchvision.transforms import Compose, ToTensor, Resize, Normalize
 import torch
@@ -35,16 +36,49 @@ def train(modelConfig: Dict):
         dataset, batch_size=modelConfig["batch_size"], shuffle=True, num_workers=4, drop_last=True, pin_memory=True)
 
     # model setup
-    net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"], ch_mult=modelConfig["channel_mult"], attn=modelConfig["attn"],
-                     num_res_blocks=modelConfig["num_res_blocks"], dropout=modelConfig["dropout"]).to(device)
+    # 创建模型
+    net_model = UNet(
+        T=modelConfig["T"],
+        ch=modelConfig["channel"],
+        ch_mult=modelConfig["channel_mult"],
+        attn=modelConfig["attn"],
+        num_res_blocks=modelConfig["num_res_blocks"],
+        dropout=modelConfig["dropout"]
+    ).to(device)
+
+# ✅ 初始化参数（在 to(device) 之后使用 .apply）
+    def weights_init(m):
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+    net_model.apply(weights_init)
+
+# 优化器 & 学习率调度器
     optimizer = torch.optim.AdamW(
         net_model.parameters(), lr=modelConfig["lr"], weight_decay=1e-4)
+
     cosineScheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer=optimizer, T_max=modelConfig["epoch"], eta_min=0, last_epoch=-1)
+        optimizer=optimizer,
+        T_max=modelConfig["epoch"],
+        eta_min=0,
+        last_epoch=-1)
+
     warmUpScheduler = GradualWarmupScheduler(
-        optimizer=optimizer, multiplier=modelConfig["multiplier"], warm_epoch=modelConfig["epoch"] // 10, after_scheduler=cosineScheduler)
+        optimizer=optimizer,
+        multiplier=modelConfig["multiplier"],
+        warm_epoch=modelConfig["epoch"] // 10,
+        after_scheduler=cosineScheduler)
+
+# 模型封装为 DDPM 的 Trainer
     trainer = GaussianDiffusionTrainer(
-        net_model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
+        net_model,
+        modelConfig["beta_1"],
+        modelConfig["beta_T"],
+        modelConfig["T"]
+    ).to(device)
+
 
     # start training
     scaler = amp.GradScaler("cuda")
@@ -72,8 +106,12 @@ def train(modelConfig: Dict):
                 # train
                 optimizer.zero_grad()
                 x_0 = images.to(device)
-                with amp.autocast("cuda"):
-                    loss = trainer(x_0).sum() / 1000.
+                loss = trainer(x_0).sum() / 1000.
+                if not torch.isfinite(loss):
+                    print(f"⚠️ Warning: Non-finite loss at epoch {e}. Loss value: {loss.item()}")
+                    continue
+
+
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(
                     net_model.parameters(), modelConfig["grad_clip"])
@@ -103,7 +141,7 @@ def train(modelConfig: Dict):
                     net_model.train()
 
 
-        # 保存模型每 50 个 epoch
+        # 保存模型每 40 个 epoch
         if (e + 1) % 50 == 0:
             torch.save({
                 'epoch': e,
@@ -221,8 +259,8 @@ def denoise_from_real_image(modelConfig: Dict):
         device = torch.device(modelConfig["device"])
         model = UNet(T=modelConfig["T"], ch=modelConfig["channel"], ch_mult=modelConfig["channel_mult"], attn=modelConfig["attn"],
                      num_res_blocks=modelConfig["num_res_blocks"], dropout=0.)
-        ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device)
-        model.load_state_dict(ckpt)
+        ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device,weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
 
         sampler = GaussianDiffusionSampler(model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
@@ -240,8 +278,11 @@ def sample_from_noise(modelConfig: Dict):
         device = torch.device(modelConfig["device"])
         model = UNet(T=modelConfig["T"], ch=modelConfig["channel"], ch_mult=modelConfig["channel_mult"], attn=modelConfig["attn"],
                      num_res_blocks=modelConfig["num_res_blocks"], dropout=0.)
-        ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device)
-        model.load_state_dict(ckpt)
+        ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device,weights_only=False)
+        if modelConfig["test_load_weight"] == "best_model.pt":
+            model.load_state_dict(ckpt)
+        else:
+            model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
 
         sampler = GaussianDiffusionSampler(model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)

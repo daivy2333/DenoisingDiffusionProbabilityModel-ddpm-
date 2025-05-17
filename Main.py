@@ -5,7 +5,7 @@ from Diffusion.Train import train, denoise_from_real_image, sample_from_noise
 def main(model_config = None):
     modelConfig = {
         "state": "eval", # or eval
-        "epoch": 400,
+        "epoch": 1200, # 1000
         "batch_size": 128, # 128
         "T": 1000,
         "channel": 64, # 64 128
@@ -20,17 +20,17 @@ def main(model_config = None):
         "img_size": 32,
         "grad_clip": 1.,
         "device": "cuda:0", ### MAKE SURE YOU HAVE A GPU !!!
-        "training_load_weight": "ckpt_79_.pt" ,### 指定加载模型用于重启中断 "ckpt_133_.pt" 重启训练用到
+        "training_load_weight": "ckpt_1199_.pt" ,### 指定加载模型用于重启中断 "ckpt_133_.pt" 重启训练用到
         "save_weight_dir": "DenoisingDiffusionProbabilityModel-ddpm-/Checkpoints/",
-        "test_load_weight": "best_model.pt",### 指定加载模型用于测试 "best_model.pt"
+        "test_load_weight": "ckpt_1199_.pt",### 指定加载模型用于测试 "best_model.pt"
         "sampled_dir": "DenoisingDiffusionProbabilityModel-ddpm-/SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
         "nrow": 8,
-        "resume_epoch": 79, ### 重启起点，重启用到
+        "resume_epoch": 1199, ### 重启起点，重启用到
         "log_images": True, # 采样开关
         "log_image_every": 20,### 图像采样间隔，受限于本人的显存，设置为20
-        "image_path":"DenoisingDiffusionProbabilityModel-ddpm-\\SampledImgs\\image.png", #修改输入图片用到
+        "image_path":"DenoisingDiffusionProbabilityModel-ddpm-\SampledImgs\image.png", #修改输入图片用到
         "eval_model":"sample" # or "sample"  # 选择评估模型的类型
         }
     
